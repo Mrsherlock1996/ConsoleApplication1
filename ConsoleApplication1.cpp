@@ -3,6 +3,9 @@
 /*利用该程序对opencvAPI进行学习*/
 using namespace std;
 using namespace cv;
+
+void  getGaussionMatrix(int size, double sigma, Mat& Gauss);
+
 int main()
 {
 	//练习imread参数IMREAD_GRAYSCALE
@@ -11,6 +14,7 @@ int main()
 	string srcWindowName = "src_image";
 	namedWindow(srcWindowName, WINDOW_AUTOSIZE);
 	imshow(srcWindowName, src);
+	waitKey(10);
 	//练习src.rows & src.cols
 	cout << "src width = " << src.cols << endl;
 	cout << "src height = " << src.rows << endl;
@@ -57,6 +61,71 @@ int main()
 	cout << "(1,1)bPixel =" << bPixel << endl;
 	cout << "(1,1)gPixel =" << gPixel << endl;
 	cout << "(1,1)rPixel =" << rPixel << endl;
+	waitKey(10);
+
+	Mat GaussianImage;
+	Mat output;
+	Mat GaussMatrix;
+	int size = 3;
+	src.copyTo(GaussianImage);
+	src.copyTo(output);
+	int channel = GaussianImage.channels();
+	int rows = GaussianImage.rows;
+	int cols = GaussianImage.cols;
+	getGaussionMatrix(3, 1, GaussMatrix);
+	for (int row = 1; row < rows - 1; row++) {
+		const uchar* current = GaussianImage.ptr<uchar>(row);
+		const uchar* previous = GaussianImage.ptr<uchar>(row-1);
+		const uchar* next = GaussianImage.ptr<uchar>(row+1);
+		uchar* outputPixels = output.ptr<uchar>(row);
+		for (int col = channel; col < channel * (cols - 1); col++) {
+		/*Mat矩阵点乘操作 A.dot(B) */
+			Mat temp = (Mat_<float>(size, size) <<
+				previous[col - 1], previous[col], previous[col + 1],
+				current[col - 1], current[col], current[col + 1],
+				next[col - 1], next[col], next[col + 1]);
+			outputPixels[col] = GaussMatrix.dot(temp);
+
+		}
+
+	}
+	namedWindow("outputGaussImage", WINDOW_AUTOSIZE);
+	imshow("outputGaussImage", output);
+	Mat gaussionBlurImage;
+	src.copyTo(gaussionBlurImage);
+	Mat outputGaussBlur;
+	GaussianBlur(gaussionBlurImage, outputGaussBlur, Size(3, 3), 1.0);
+	namedWindow("GaussionBlur", WINDOW_AUTOSIZE);
+	imshow("GaussionBlur", outputGaussBlur);
 	waitKey(0);
 	return 0;
+
+	
+}
+void  getGaussionMatrix(int size, double sigma, Mat &Gauss) { 
+	//只用了一个sigma, 公式是sigmax和sigmay
+	Gauss.create(Size(size, size), CV_32FC1);
+	float sum = 0.0;
+	float center = size / 2;
+	/*  要想得到一个高斯滤波器的模板，
+	可以对高斯函数进行离散化，
+	得到的高斯函数值作为模板的系数。
+	例如：要产生一个3×3的高斯滤波器模板，
+	以模板的中心位置为坐标原点进行取样。
+	center只是一个用来平衡周围像素的值罢了*/
+	const float PI = 4 * tan(1.0);
+	for (int i = 0; i < size; i++) {
+		for (int j = 0; j < size; j++) {
+			//写出该点Gaussion权值, 
+			Gauss.at<float>(i, j) = (1 / (2 * PI * sigma * sigma)) * 
+				exp(-((i - center) * (i - center) + (j - center) * (j - center)) / (2 * sigma * sigma));
+			sum += Gauss.at<float>(i, j);
+		}
+	}
+	//归一化
+	for (int i = 0; i < size; i++) {
+		for (int j = 0; j < size; j++) {
+			Gauss.at<float>(i, j) /= sum;
+		}
+	}
 }
